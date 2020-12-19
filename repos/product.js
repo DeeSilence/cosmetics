@@ -1,4 +1,4 @@
-const productModel = require("../models/product")
+const {productModel} = require("../models/product")
 const addProduct = (req, res, next) => {
     if (req.userInfo && req.userInfo.isAdmin === true) {
         const {

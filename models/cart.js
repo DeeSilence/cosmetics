@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const {productSchema} = require('./product')
 const Schema = mongoose.Schema;
 const CartItemSchema = new Schema({
     puid: {
@@ -7,24 +8,17 @@ const CartItemSchema = new Schema({
         required: true,
         unique: true,
     },
-    price: {
-        type: String,
-        trim: true,
-        required: true,
-    },
-    currency: {
-        type: String,
-        trim: true,
-        required: true,
-    },
     quantity: {
         type: String,
         trim: true,
         required: false,
     },
+    product: {
+        type: productSchema
+    }
 
 });
- mongoose.model('CartItem', CartItemSchema);
+mongoose.model('CartItem', CartItemSchema);
 const CartSchema = new Schema({
     cuid: {
         type: mongoose.Schema.Types.ObjectId,

@@ -108,4 +108,4 @@ const ProductSchema = new Schema({
         type: MediaSchema
     }
 });
-module.exports = mongoose.model('Product', ProductSchema);
+module.exports = {productModel: mongoose.model('Product', ProductSchema), productSchema: ProductSchema};

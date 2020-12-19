@@ -1,5 +1,5 @@
 const cartModel = require("../models/cart")
-const productModel = require("../models/product")
+const {productModel} = require("../models/product")
 const moment = require('moment')
 const _ = require('lodash')
 const creteCart = (req, res, next) => {
@@ -74,7 +74,7 @@ const updateItems = (req, res, next) => {
                     let errorMsg = null
                     await Promise.all(_.map(items, async (
                         {
-                            puid, price, quantity
+                            puid, quantity
 
                         }, index
                     ) => {
@@ -93,7 +93,7 @@ const updateItems = (req, res, next) => {
                                     return true
                                 }
                                 if (product['_doc'].quantity === 0) {
-                                    errorMsg = product['_doc'].name + " with id " + product['_doc'].puid +  " out of stock"
+                                    errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " out of stock"
                                     return true
                                 }
                                 let i = null
@@ -103,14 +103,13 @@ const updateItems = (req, res, next) => {
                                         return k
                                     }
                                 })) {
-                                    currentCartItem[i].price = product['_doc'].salePrice || product['_doc'].originalPrice
                                     currentCartItem[i].quantity = Math.abs(Math.round(quantity))
+                                    currentCartItem[i].product = product['_doc']
                                 } else {
                                     const newItem = {}
-                                    newItem.price = product['_doc'].salePrice || product['_doc'].originalPrice
                                     newItem.quantity = Math.abs(Math.round(quantity))
-                                    newItem.currency = configs.currency
                                     newItem.puid = puid
+                                    newItem.product = product['_doc']
                                     currentCartItem.push(newItem)
                                 }
                             } else {
@@ -127,7 +126,7 @@ const updateItems = (req, res, next) => {
                         });
                     }
                     let total = 0
-                    currentCartItem.forEach((a) => total += (parseFloat(a.price) * a.quantity))
+                    currentCartItem.forEach((a) => total += (parseFloat(a.product.salePrice || a.product.originalPrice) * a.quantity))
                     await cartModel.update({cuid}, {total, items: currentCartItem}, function (err, updatedProduct) {
                         if (err) {
                             res.status(400).json({error: true, message: err});
@@ -262,7 +261,7 @@ const checkout = async (req, res, next) => {
             let errorMsg = ''
             await Promise.all(_.map(items, async (
                 {
-                    puid, price, quantity
+                    puid, quantity
 
                 }, index
             ) => {
@@ -292,7 +291,7 @@ const checkout = async (req, res, next) => {
             }
             await Promise.all(_.map(items, async (
                 {
-                    puid, price, quantity
+                    puid, quantity
 
                 }, index
             ) => {
