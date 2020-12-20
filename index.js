@@ -1,3 +1,5 @@
+const swaggerUi = require('swagger-ui-express');
+const specs = require('./swagger.js');
 const config = require('./configs');
 const translations = require('./configs/translations');
 const translate = require('./utils/translate')
@@ -22,6 +24,7 @@ app.use(logger('dev'));
 app.use(cors())
 app.use(bodyParser.json());
 app.use('/healthCheck', healthCheck)
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(specs, { explorer: true }));
 app.use('/:lang/users', users)
 app.use('/:lang/files', validateUser, files)
 app.use('/:lang/product', validateUser, product)

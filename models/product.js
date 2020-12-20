@@ -1,17 +1,20 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const ImageSchema = new Schema({
+    fuid: {
+        type: mongoose.Schema.Types.ObjectId,
+        trim: true,
+        required: true,
+        unique: true,
+        index: true,
+        auto: true,
+    },
     uuid: {
         type: String,
         trim: true,
         required: true,
     },
     puid: {
-        type: String,
-        trim: true,
-        required: true,
-    },
-    fieldName: {
         type: String,
         trim: true,
         required: true,
@@ -55,9 +58,7 @@ const ImageSchema = new Schema({
 });
 mongoose.model('Image', ImageSchema);
 const MediaSchema = new Schema({
-    images: [{
-        ref: ImageSchema
-    }],
+    images: [ImageSchema],
 });
 mongoose.model('Media', MediaSchema);
 const ProductSchema = new Schema({
@@ -104,8 +105,7 @@ const ProductSchema = new Schema({
         trim: true,
         required: true
     },
-    media: {
-        type: MediaSchema
-    }
+    media: {type: MediaSchema, required: true, default: {images: []}}
 });
+
 module.exports = {productModel: mongoose.model('Product', ProductSchema), productSchema: ProductSchema};

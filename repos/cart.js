@@ -41,7 +41,7 @@ const creteCart = (req, res, next) => {
     })
 
 }
-const updateItems = (req, res, next) => {
+const updateItems = async (req, res, next) => {
     const {uuid} = req.userInfo
     const {
         cuid,
@@ -59,25 +59,18 @@ const updateItems = (req, res, next) => {
             message: missingRequired + textTranslate.find("wasNotPassed"),
         });
     }
-    cartModel.findOne({cuid, uuid, status: configs.cartStatus.inProgress}, async function (err, cart) {
-        if (err) {
-            res.status(400).json({error: false, message: err});
-        } else {
-            if (cart) {
-                //first find the car
-                //send search for if the puid
-                //if exist extract price and add item to cart
-                //update cart
-
-                if (Array.isArray(items)) {
-                    const currentCartItem = cart['_doc'].items.map(i => i["_doc"])
-                    let errorMsg = null
-                    await Promise.all(_.map(items, async (
-                        {
-                            puid, quantity
-
-                        }, index
-                    ) => {
+    try {
+        const cart = await cartModel.findOne({cuid, uuid, status: configs.cartStatus.inProgress}).exec()
+        if (cart) {
+            //first find the car
+            //             //send search for if the puid
+            //             //if exist extract price and add item to cart
+            //             //update cart
+            //
+            if (Array.isArray(items)) {
+                const currentCartItem = cart['_doc'].items.map(i => i["_doc"])
+                let errorMsg = null
+                await Promise.all(_.map(items, async ({puid, quantity}, index) => {
                         if (!puid)
                             missingRequired += 'item[' + index + '].puid, '
                         if (!quantity)
@@ -86,81 +79,74 @@ const updateItems = (req, res, next) => {
                             errorMsg = missingRequired + textTranslate.find("wasNotPassed")
                             return true
                         }
-                        await productModel.findOne({puid}, async function (err, product) {
-                            if (product) {
-                                if (product['_doc'].quantity < Math.abs(Math.round(quantity))) {
-                                    errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " only (" + product['_doc'].quantity + ") items in stock"
-                                    return true
-                                }
-                                if (product['_doc'].quantity === 0) {
-                                    errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " out of stock"
-                                    return true
-                                }
-                                let i = null
-                                if (currentCartItem.find((k, ik) => {
-                                    if (k.puid === puid) {
-                                        i = ik
-                                        return k
-                                    }
-                                })) {
-                                    currentCartItem[i].quantity = Math.abs(Math.round(quantity))
-                                    currentCartItem[i].product = product['_doc']
-                                } else {
-                                    const newItem = {}
-                                    newItem.quantity = Math.abs(Math.round(quantity))
-                                    newItem.puid = puid
-                                    newItem.product = product['_doc']
-                                    currentCartItem.push(newItem)
-                                }
-                            } else {
-                                errorMsg = `item[${index}].puid ` + textTranslate.find("notValid")
+                        const product = await productModel.findOne({puid}).exec()
+                        if (product) {
+                            if (product['_doc'].quantity < Math.abs(Math.round(quantity))) {
+                                errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " only (" + product['_doc'].quantity + ") items in stock"
                                 return true
                             }
-                        })
-                        return true
-                    }))
-                    if (errorMsg) {
-                        return res.status(400).json({
-                            error: true,
-                            message: errorMsg,
-                        });
-                    }
-                    let total = 0
-                    currentCartItem.forEach((a) => total += (parseFloat(a.product.salePrice || a.product.originalPrice) * a.quantity))
-                    await cartModel.update({cuid}, {total, items: currentCartItem}, function (err, updatedProduct) {
-                        if (err) {
-                            res.status(400).json({error: true, message: err});
-                        } else {
-                            cartModel.findOne({cuid}, async function (updatedErr, updatedCart) {
-                                    if (updatedErr) {
-                                        res.status(400).json({error: false, message: err});
-                                    } else {
-                                        res.status(201).json({
-                                            error: false,
-                                            message: textTranslate.find("cartUpdatesSuccessfully"),
-                                            data: {
-                                                cart: updatedCart["_doc"]
-                                            }
-                                        });
-                                    }
+                            if (product['_doc'].quantity === 0) {
+                                errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " out of stock"
+                                return true
+                            }
+                            let i = null
+                            if (currentCartItem.find((k, ik) => {
+                                if (k.puid === puid) {
+                                    i = ik
+                                    return k
                                 }
-                            )
+                            })) {
+                                currentCartItem[i].quantity = Math.abs(Math.round(quantity))
+                                currentCartItem[i].product = product['_doc']
+                            } else {
+                                const newItem = {}
+                                newItem.quantity = Math.abs(Math.round(quantity))
+                                newItem.puid = puid
+                                newItem.product = product['_doc']
+                                currentCartItem.push(newItem)
+                            }
+                        } else {
+                            errorMsg = `item[${index}].puid ` + textTranslate.find("notValid")
+                            return true
                         }
-                    });
-                } else {
+
+                    }
+                    )
+                )
+                if (errorMsg) {
                     return res.status(400).json({
                         error: true,
-                        message: "items is Array Type" + textTranslate.find("wasNotPassed"),
+                        message: errorMsg,
                     });
                 }
-            } else
-                res.status(404).json({
-                    error: true,
-                    message: textTranslate.find("cartWasNotFound"),
-                    data: {}
+                let total = 0
+                currentCartItem.forEach((a) => total += (parseFloat(a.product.salePrice || a.product.originalPrice) * a.quantity))
+                await cartModel.update({cuid}, {total, items: currentCartItem}).exec()
+                const updatedCart = await cartModel.findOne({cuid}).exec()
+                res.status(201).json({
+                    error: false,
+                    message: textTranslate.find("cartUpdatesSuccessfully"),
+                    data: {
+                        cart: updatedCart["_doc"]
+                    }
                 });
+            } else {
+                return res.status(404).json({
+                    error: true,
+                    message: "items is Array Type" + textTranslate.find("wasNotPassed"),
+                });
+            }
+        } else {
+            res.status(404).json({
+                error: true,
+                message: textTranslate.find("cartWasNotFound"),
+                data: {}
+            });
         }
-    });
+    } catch
+        (err) {
+        res.status(400).json({error: false, message: err});
+    }
 }
 const deleteCart = (req, res, next) => {
     const {uuid} = req.userInfo
@@ -322,35 +308,6 @@ const checkout = async (req, res, next) => {
     } catch (err) {
         res.status(400).json({error: true, message: err});
     }
-    // cartModel.findOne({cuid, uuid}, function (err, cart) {
-    //     if (err) {
-    //         res.status(400).json({error: true, message: err});
-    //     } else {
-    //         if (cart) {
-    //
-    //             cartModel.update({cuid}, {status: configs.cartStatus.submitted}, function (err, updatedProduct) {
-    //                 if (err) {
-    //                     res.status(400).json({error: true, message: err});
-    //                 } else {
-    //
-    //                     cartModel.findOne({cuid, uuid}, function (updatedErr, updatedCart) {
-    //                         res.status(201).json({
-    //                             error: false,
-    //                             message: textTranslate.find("cartUpdatesSuccessfully"),
-    //                             data: {cart: updatedCart['_doc']}
-    //                         });
-    //                     })
-    //
-    //                 }
-    //             });
-    //
-    //         } else
-    //             res.status(404).json({
-    //                 error: true,
-    //                 message: textTranslate.find("cartWasNotFound"),
-    //                 data: {}
-    //             });
-    //     }
-    // });
+
 }
 module.exports = {creteCart, updateItems, deleteCart, getCart, getCarts, checkout}

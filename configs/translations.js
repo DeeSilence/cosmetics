@@ -21,6 +21,8 @@ module.exports = {
         userAlreadyHaveCart: "user already have a cart",
         cartFound: "Cart Found",
         notValid: "not valid",
+        unexpectedFormat:"Unexpected Format",
+        fileWasNotFound:"File Was Not Found",
     },
     ar: {}
 }
