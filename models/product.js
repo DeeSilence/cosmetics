@@ -61,8 +61,8 @@ const MediaSchema = new Schema({
     images: [ImageSchema],
 });
 mongoose.model('Media', MediaSchema);
-const ProductSchema = new Schema({
-    puid: {
+const StockKeepingUnitSchema = new Schema({
+    skuid: {
         type: mongoose.Schema.Types.ObjectId,
         trim: true,
         required: true,
@@ -75,7 +75,7 @@ const ProductSchema = new Schema({
         trim: true,
         required: true,
     },
-    category: {
+    description: {
         type: String,
         trim: true,
         required: true,
@@ -99,13 +99,47 @@ const ProductSchema = new Schema({
         type: String,
         trim: true,
         required: true,
+        default:configs.currency
     },
     quantity: {
         type: Number,
         trim: true,
         required: true
     },
-    media: {type: MediaSchema, required: true, default: {images: []}}
+})
+mongoose.model('Sku', StockKeepingUnitSchema);
+const ProductSchema = new Schema({
+    puid: {
+        type: mongoose.Schema.Types.ObjectId,
+        trim: true,
+        required: true,
+        unique: true,
+        index: true,
+        auto: true,
+    },
+    name: {
+        type: String,
+        trim: true,
+        required: true,
+    },
+    description: {
+        type: String,
+        trim: true,
+        required: true,
+    },
+    category: {
+        type: String,
+        trim: true,
+        required: true,
+    },
+    quantity: {
+        type: Number,
+        trim: true,
+        required: true,
+        default: 0
+    },
+    media: {type: MediaSchema, required: true, default: {images: []}},
+    skus: [StockKeepingUnitSchema]
 });
 
 module.exports = {productModel: mongoose.model('Product', ProductSchema), productSchema: ProductSchema};
