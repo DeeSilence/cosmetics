@@ -1,7 +1,7 @@
 module.exports = {
     port: 3000,
     lang: 'en',
-    currency:'jod',
+    currency: 'jod',
     client: {
         user: 'postgres',
         host: 'localhost',
@@ -19,5 +19,6 @@ module.exports = {
         inProgress: "IN_PROGRESS",
         submitted: "SUBMITTED",
         fulfilled: "FULFILLED",
+        cancelled: "CANCELLED"
     }
 }

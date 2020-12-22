@@ -6,10 +6,16 @@ const CartItemSchema = new Schema({
         type: String,
         trim: true,
         required: true,
-        unique: true,
+        // unique: true,
+    },
+    skuid: {
+        type: String,
+        trim: true,
+        required: true,
+        // unique: true,
     },
     quantity: {
-        type: String,
+        type: Number,
         trim: true,
         required: false,
     },
@@ -43,6 +49,7 @@ const CartSchema = new Schema({
         type: String,
         trim: true,
         required: false,
+        default: configs.currency
     },
     createDate: {
         type: String,

@@ -2,43 +2,32 @@ const cartModel = require("../models/cart")
 const {productModel} = require("../models/product")
 const moment = require('moment')
 const _ = require('lodash')
-const creteCart = (req, res, next) => {
+const creteCart = async (req, res, next) => {
     const {uuid} = req.userInfo
-    cartModel.findOne({uuid, status: configs.cartStatus.inProgress}, async function (err, cart) {
-        if (err) {
-            res.status(400).json({error: true, message: err});
+    try {
+        const cart = await cartModel.findOne({uuid, status: configs.cartStatus.inProgress}).exec()
+        if (cart) {
+            res.status(201).json({
+                error: false,
+                message: textTranslate.find("userAlreadyHaveCart"),
+                data: cart["_doc"]
+            });
         } else {
-            if (cart) {
-                res.status(201).json({
-                    error: false,
-                    message: textTranslate.find("userAlreadyHaveCart"),
-                    data: cart["_doc"]
-                });
-            } else {
-                const total = '0'
-                const createDate = moment(new Date()).format("DD/MM/YYYY")
-                const currency = configs.currency
+            const total = '0'
+            const createDate = moment(new Date()).format("DD/MM/YYYY")
+            const currency = configs.currency
 
-                cartModel.create({
-                    uuid, total, createDate, currency,
-                }, function (err, result) {
-                    if (err)
-                        res.status(400).json({error: true, message: err});
-                    else {
-                        cartModel.findOne({uuid}, async function (newErr, newCart) {
-                            res.status(201).json({
-                                error: false,
-                                message: textTranslate.find("cartCreatedSuccessfully"),
-                                data: newCart["_doc"]
-                            });
-
-                        })
-                    }
-
-                });
-            }
+            const createdCart = await cartModel.create({uuid, total, createDate, currency,})
+            res.status(201).json({
+                error: false,
+                message: textTranslate.find("cartCreatedSuccessfully"),
+                data: createdCart["_doc"]
+            });
         }
-    })
+
+    } catch (err) {
+        res.status(400).json({error: true, message: err});
+    }
 
 }
 const updateItems = async (req, res, next) => {
@@ -70,9 +59,11 @@ const updateItems = async (req, res, next) => {
             if (Array.isArray(items)) {
                 const currentCartItem = cart['_doc'].items.map(i => i["_doc"])
                 let errorMsg = null
-                await Promise.all(_.map(items, async ({puid, quantity}, index) => {
+                await Promise.all(_.map(items, async ({puid, skuid, quantity}, index) => {
                         if (!puid)
                             missingRequired += 'item[' + index + '].puid, '
+                        if (!skuid)
+                            missingRequired += 'item[' + index + '].skuid, '
                         if (!quantity)
                             missingRequired += 'item[' + index + '].quantity, '
                         if (missingRequired.length > 0) {
@@ -81,29 +72,48 @@ const updateItems = async (req, res, next) => {
                         }
                         const product = await productModel.findOne({puid}).exec()
                         if (product) {
-                            if (product['_doc'].quantity < Math.abs(Math.round(quantity))) {
-                                errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " only (" + product['_doc'].quantity + ") items in stock"
-                                return true
-                            }
-                            if (product['_doc'].quantity === 0) {
-                                errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " out of stock"
-                                return true
-                            }
-                            let i = null
-                            if (currentCartItem.find((k, ik) => {
-                                if (k.puid === puid) {
-                                    i = ik
-                                    return k
+                            const skus = product['_doc'].skus
+                            if (skus) {
+                                const selectedSku = skus.map(k => k['_doc']).map(k => {
+                                    return {
+                                        ...k,
+                                        skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+                                        _id: JSON.stringify(k._id).replaceAll('"', ""),
+                                    }
+                                }).find(k => k.skuid === skuid)
+                                if (selectedSku) {
+                                    if (selectedSku.quantity < Math.abs(Math.round(quantity))) {
+                                        errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " and skuID " + selectedSku.skuid + " only (" + selectedSku.quantity + ") items in stock"
+                                        return true
+                                    }
+                                    if (selectedSku.quantity === 0) {
+                                        errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " and skuID " + selectedSku.skuid + " only (" + selectedSku.quantity + ") out of stock"
+                                        return true
+                                    }
+                                    let i = null
+                                    if (currentCartItem.find((k, ik) => {
+                                        if (k.skuid === skuid && k.puid === puid) {
+                                            i = ik
+                                            return k
+                                        }
+                                    })) {
+                                        currentCartItem[i].quantity = Math.abs(Math.round(quantity))
+                                        currentCartItem[i].product = product['_doc']
+                                    } else {
+                                        const newItem = {}
+                                        newItem.quantity = Math.abs(Math.round(quantity))
+                                        newItem.puid = puid
+                                        newItem.skuid = skuid
+                                        newItem.product = product['_doc']
+                                        currentCartItem.push(newItem)
+                                    }
+                                } else {
+                                    errorMsg = `item[${index}].sku ` + textTranslate.find("notValid")
+                                    return true
                                 }
-                            })) {
-                                currentCartItem[i].quantity = Math.abs(Math.round(quantity))
-                                currentCartItem[i].product = product['_doc']
                             } else {
-                                const newItem = {}
-                                newItem.quantity = Math.abs(Math.round(quantity))
-                                newItem.puid = puid
-                                newItem.product = product['_doc']
-                                currentCartItem.push(newItem)
+                                errorMsg = textTranslate.find("noSkuAddedFor") + ` item[${index}].sku`
+                                return true
                             }
                         } else {
                             errorMsg = `item[${index}].puid ` + textTranslate.find("notValid")
@@ -120,8 +130,55 @@ const updateItems = async (req, res, next) => {
                     });
                 }
                 let total = 0
-                currentCartItem.forEach((a) => total += (parseFloat(a.product.salePrice || a.product.originalPrice) * a.quantity))
+                currentCartItem.forEach((a) => {
+                    let skuIndex = null
+                    a.product.skus.map(k => k['_doc']).map(k => {
+                        return {
+                            ...k,
+                            skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+                            _id: JSON.stringify(k._id).replaceAll('"', ""),
+                        }
+                    }).forEach((k, ik) => {
+                        if (k.skuid === a.skuid) {
+                            skuIndex = ik
+                            return k
+                        }
+                    })
+                    total += (parseFloat(a.product.skus[skuIndex].salePrice || a.product.skus[skuIndex].originalPrice) * a.quantity)
+                })
                 await cartModel.update({cuid}, {total, items: currentCartItem}).exec()
+                await Promise.all(_.map(items, async ({puid, skuid, quantity}, index) => {
+                    let skuIndex = null
+                    const product = await productModel.findOne({puid}).exec()
+                    product['_doc'].skus.map(k => k['_doc']).map(k => {
+                        return {
+                            ...k,
+                            skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+                            _id: JSON.stringify(k._id).replaceAll('"', ""),
+                        }
+                    }).forEach((k, ik) => {
+                        if (k.skuid === skuid) {
+                            skuIndex = ik
+                            return k
+                        }
+                    })
+                    const itemToUpdate = product['_doc'].skus.map(k => k['_doc']).map(k => {
+                        return {
+                            ...k,
+                            skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+                            _id: JSON.stringify(k._id).replaceAll('"', ""),
+                        }
+                    })[skuIndex]
+                    itemToUpdate.quantity = itemToUpdate.quantity - quantity
+                    product['_doc'].skus.pull(itemToUpdate._id)
+                    product['_doc'].skus.push(itemToUpdate)
+                    await product.save()
+                    let totalQuantity = 0;
+                    product['_doc'].skus.forEach(item => {
+                        totalQuantity += item.quantity
+                    })
+                    await productModel.update({puid}, {quantity: totalQuantity}).exec()
+                }))
                 const updatedCart = await cartModel.findOne({cuid}).exec()
                 res.status(201).json({
                     error: false,
@@ -247,7 +304,7 @@ const checkout = async (req, res, next) => {
             let errorMsg = ''
             await Promise.all(_.map(items, async (
                 {
-                    puid, quantity
+                    puid, skuid, quantity
 
                 }, index
             ) => {
@@ -257,10 +314,18 @@ const checkout = async (req, res, next) => {
                         errorMsg += product['_doc'].name + " with id " + product['_doc'].puid + " is out of stock"
                         return true
                     }
-                    if (product['_doc'].quantity < quantity) {
-                        errorMsg += product['_doc'].name + " with id " + product['_doc'].puid + " only (" + product['_doc'].quantity + ") items in stock"
-                        return true
-                    }
+                    product['_doc'].skus.map(k => k['_doc']).map(k => {
+                        return {
+                            ...k,
+                            skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+                            _id: JSON.stringify(k._id).replaceAll('"', ""),
+                        }
+                    }).forEach(item => {
+                        if (item.quantity < quantity) {
+                            errorMsg += product['_doc'].name + " with id " + product['_doc'].puid + " and SKU " + item.skuid + " only (" + product['_doc'].quantity + ") items in stock"
+                            return true
+                        }
+                    })
                     return true
                 } else {
                     errorMsg += textTranslate.find("productWasNotFound")
