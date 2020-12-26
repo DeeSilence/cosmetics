@@ -5,8 +5,7 @@ async function validateUser(req, res, next) {
     configs.lang = req.params.lang.toLowerCase()
     await jwt.verify(req.headers['authorization'], configs.jwtSecretKey, async function (err, decoded) {
         if (err) {
-            res.json({error: true, message: err.message, data: null});
-            next();
+           return res.status(401).json({error: true, message: err.message, data: null});
 
         } else {
             try {
@@ -14,7 +13,7 @@ async function validateUser(req, res, next) {
                 req.userInfo = userInfo['_doc']
 
             } catch (err) {
-                next(err);
+                return res.status(500).json({error: true, message: err.message, data: null});
             } finally {
                 next();
             }

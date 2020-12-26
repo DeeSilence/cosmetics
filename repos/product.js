@@ -2,7 +2,7 @@ const {productModel} = require("../models/product")
 const addProduct = async (req, res, next) => {
     if (req.userInfo && req.userInfo.isAdmin === true) {
         const {
-            name, category, description
+            name, category, description, originalPrice, salePrice, discount
 
         } = req.body
         let missingRequired = ''
@@ -12,6 +12,9 @@ const addProduct = async (req, res, next) => {
             missingRequired += 'category, '
         if (!description)
             missingRequired += 'description, '
+        if (!originalPrice)
+            missingRequired += 'originalPrice,'
+
         if (missingRequired.length > 0) {
             return res.status(400).json({
                 error: true,
@@ -19,14 +22,18 @@ const addProduct = async (req, res, next) => {
             });
         }
         try {
-            const product = await productModel.create({name, category, description})
-            res.status(201).json({
+            const product = await productModel.create({name, category, description, originalPrice, salePrice, discount})
+            return res.status(201).json({
                 error: false,
                 message: textTranslate.find("productAddedSuccessfully"),
                 data: product['_doc']
             });
         } catch (err) {
-            res.status(400).json({error: false, message: err});
+            return res.status(400).json({
+                error: false,
+                message: textTranslate.find("somethingWentWrong"),
+                data: err
+            });
         }
 
     } else {
@@ -46,6 +53,7 @@ const updateProduct = async (req, res, next) => {
         if (!puid)
             missingRequired += 'puid, '
         if (missingRequired.length > 0) {
+            return
             return res.status(400).json({
                 error: true,
                 message: missingRequired + textTranslate.find("wasNotPassed"),
@@ -65,22 +73,27 @@ const updateProduct = async (req, res, next) => {
 
                 await productModel.update({puid}, {...toUpdate}).exec()
                 const updatedProduct = await productModel.findOne({puid}).exec()
-                res.status(201).json({
+                return res.status(201).json({
                     error: false,
                     message: textTranslate.find("productUpdatesSuccessfully"),
                     data: updatedProduct['_doc']
                 });
             } else
-                res.status(404).json({
+                return res.status(404).json({
                     error: true,
                     message: textTranslate.find("productWasNotFound"),
                     data: {}
                 });
         } catch (err) {
-            res.status(400).json({error: false, message: err});
+            return res.status(400).json({
+                error: false,
+                message: textTranslate.find("somethingWentWrong"),
+                data: err
+            });
         }
 
     } else {
+        return
         return res.status(400).json({
             error: true,
             message: textTranslate.find('notAuthorized'),
@@ -104,19 +117,22 @@ const deleteProduct = async (req, res, next) => {
             const product = await productModel.findOne({puid}).exec()
             if (product) {
                 await productModel.deleteOne({puid}).exec()
-                res.status(201).json({
+                return res.status(201).json({
                     error: false,
                     message: textTranslate.find("productDeletedSuccessfully"),
                     data: {}
                 });
             } else
-                res.status(404).json({
+                return res.status(404).json({
                     error: true,
                     message: textTranslate.find("productWasNotFound"),
                     data: {}
                 });
         } catch (err) {
-            res.status(400).json({error: false, message: err});
+            return res.status(400).json({
+                error: false, message: textTranslate.find("somethingWentWrong"),
+                data: err
+            });
         }
 
     } else {
@@ -129,36 +145,53 @@ const deleteProduct = async (req, res, next) => {
 }
 const getProduct = async (req, res, next) => {
     const {puid} = req.params
+    let missingRequired = ''
+
+    if (!puid)
+        missingRequired += 'puid, '
+
+    if (missingRequired.length > 0) {
+        return res.status(400).json({
+            error: true,
+            message: missingRequired + textTranslate.find("wasNotPassed"),
+        });
+    }
     try {
         const product = await productModel.findOne({puid}).exec();
         if (product)
-            res.status(201).json({
+            return res.status(201).json({
                 error: false,
                 message: textTranslate.find("productFound"),
                 data: {product: product['_doc']}
             });
         else
-            res.status(404).json({
+            return res.status(404).json({
                 error: true,
                 message: textTranslate.find("productWasNotFound"),
                 data: {}
             });
     } catch (err) {
-        res.status(400).json({error: false, message: err});
+        return res.status(400).json({
+            error: false, message: textTranslate.find("productWasNotFound"),
+            data: err
+        });
     }
 
 }
 const getAllProducts = async (req, res, next) => {
     try {
         const products = await productModel.find({}).exec();
-        res.status(201).json({
+        return res.status(201).json({
             error: false,
             message: textTranslate.find("productFound"),
             data: {products}
         });
 
     } catch (err) {
-        res.status(400).json({error: false, message: err});
+        return res.status(400).json({
+            error: false, message: textTranslate.find("somethingWentWrong"),
+            data: err
+        });
     }
 }
 
@@ -197,19 +230,22 @@ const addSKU = async (req, res, next) => {
                 })
                 await productModel.update({puid}, {quantity: totalQuantity}).exec()
                 const updatedProduct = await productModel.findOne({puid}).exec()
-                res.status(201).json({
+                return res.status(201).json({
                     error: false,
                     message: textTranslate.find("skuAddedSuccessfully"),
                     data: updatedProduct['_doc']
                 });
             } else
-                res.status(404).json({
+                return res.status(404).json({
                     error: true,
                     message: textTranslate.find("skuWasNotFound"),
                     data: {}
                 });
         } catch (err) {
-            res.status(400).json({error: false, message: err});
+            return res.status(400).json({
+                error: false, message: textTranslate.find("somethingWentWrong"),
+                data: err
+            });
         }
 
     } else {
@@ -255,25 +291,28 @@ const updateSKU = async (req, res, next) => {
                     })
                     await productModel.update({puid}, {quantity: totalQuantity}).exec()
                     const updatedProduct = await productModel.findOne({puid}).exec()
-                    res.status(201).json({
+                    return res.status(201).json({
                         error: false,
                         message: textTranslate.find("skuUpdatesSuccessfully"),
                         data: updatedProduct['_doc']
                     });
                 } else
-                    res.status(404).json({
+                    return res.status(404).json({
                         error: true,
                         message: textTranslate.find("skuWasNotFound"),
                         data: {}
                     });
             } else
-                res.status(404).json({
+                return res.status(404).json({
                     error: true,
                     message: textTranslate.find("productWasNotFound"),
                     data: {}
                 });
         } catch (err) {
-            res.status(400).json({error: false, message: err});
+            return res.status(400).json({
+                error: false, message: textTranslate.find("somethingWentWrong"),
+                data: err
+            });
         }
 
     } else {
@@ -286,13 +325,14 @@ const updateSKU = async (req, res, next) => {
 }
 const deleteSKU = async (req, res, next) => {
     if (req.userInfo && req.userInfo.isAdmin === true) {
-        const {puid,skuid} = req.params
+        const {puid, skuid} = req.params
         let missingRequired = ''
         if (!puid)
             missingRequired += 'puid, '
         if (!skuid)
             missingRequired += 'skuid, '
         if (missingRequired.length > 0) {
+            return
             return res.status(400).json({
                 error: true,
                 message: missingRequired + textTranslate.find("wasNotPassed"),
@@ -316,25 +356,28 @@ const deleteSKU = async (req, res, next) => {
                     })
                     await productModel.update({puid}, {quantity: totalQuantity}).exec()
                     const updatedProduct = await productModel.findOne({puid}).exec()
-                    res.status(201).json({
+                    return res.status(201).json({
                         error: false,
                         message: textTranslate.find("skuDeletedSuccessfully"),
                         data: updatedProduct['_doc']
                     });
                 } else
-                    res.status(404).json({
+                    return res.status(404).json({
                         error: true,
                         message: textTranslate.find("skuWasNotFound"),
                         data: {}
                     });
             } else
-                res.status(404).json({
+                return res.status(404).json({
                     error: true,
                     message: textTranslate.find("productWasNotFound"),
                     data: {}
                 });
         } catch (err) {
-            res.status(400).json({error: false, message: err});
+            return res.status(400).json({
+                error: false, message: textTranslate.find("somethingWentWrong"),
+                data: err
+            });
         }
 
     } else {

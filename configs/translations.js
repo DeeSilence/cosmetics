@@ -29,6 +29,7 @@ module.exports = {
         unexpectedFormat:"Unexpected Format",
         fileWasNotFound:"File Was Not Found",
         noSkuAddedFor:"No sku added for ",
+        somethingWentWrong:"Something Went Wrong",
     },
     ar: {}
 }

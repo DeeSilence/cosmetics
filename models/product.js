@@ -5,8 +5,8 @@ const ImageSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId,
         trim: true,
         required: true,
-        unique: true,
-        index: true,
+        // unique: true,
+        // index: true,
         auto: true,
     },
     uuid: {
@@ -66,8 +66,8 @@ const StockKeepingUnitSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId,
         trim: true,
         required: true,
-        unique: true,
-        index: true,
+        // unique: true,
+        // index: true,
         auto: true,
     },
     name: {
@@ -99,7 +99,7 @@ const StockKeepingUnitSchema = new Schema({
         type: String,
         trim: true,
         required: true,
-        default:configs.currency
+        default: configs.currency
     },
     quantity: {
         type: Number,
@@ -137,6 +137,27 @@ const ProductSchema = new Schema({
         trim: true,
         required: true,
         default: 0
+    },
+    originalPrice: {
+        type: String,
+        trim: true,
+        required: true,
+    },
+    salePrice: {
+        type: String,
+        trim: true,
+        required: false,
+    },
+    discount: {
+        type: String,
+        trim: true,
+        required: false,
+    },
+    currency: {
+        type: String,
+        trim: true,
+        required: true,
+        default: configs.currency
     },
     media: {type: MediaSchema, required: true, default: {images: []}},
     skus: [StockKeepingUnitSchema]

@@ -60,23 +60,38 @@ const create = (req, res, next) => {
 
     });
 }
-const authenticate = (req, res, next) => {
-    userModel.findOne({email: req.body.email}, function (err, userInfo) {
-        if (err) {
-            res.status(400).json({error: false, message: err});
+const authenticate = async (req, res, next) => {
+    const {email, password} = req.body
+    let missingRequired = ''
+    if (!email)
+        missingRequired += 'email, '
+    if (!password)
+        missingRequired += 'password, '
+    if (missingRequired.length > 0) {
+        return res.status(400).json({
+            error: true,
+            message: missingRequired + textTranslate.find("wasNotPassed"),
+        });
+    }
+    try {
+        const userInfo = await userModel.findOne({email}).exec()
+        if(userInfo){
+        if (bcrypt.compareSync(password, userInfo.password)) {
+            const token = jwt.sign({id: userInfo.uuid}, configs.jwtSecretKey, {expiresIn: '24h'});
+            res.status(201).json({
+                error: false,
+                message: textTranslate.find("userFound"),
+                data: {user: userInfo, token: token}
+            });
         } else {
-            if (bcrypt.compareSync(req.body.password, userInfo.password)) {
-                const token = jwt.sign({id: userInfo.uuid}, configs.jwtSecretKey, {expiresIn: '24h'});
-                res.status(201).json({
-                    error: false,
-                    message: textTranslate.find("userFound"),
-                    data: {user: userInfo, token: token}
-                });
-            } else {
-                res.status(400).json({error: true, message: textTranslate.find("InvalidUser"), data: null});
-            }
+            res.status(400).json({error: true, message: textTranslate.find("InvalidUser"), data: null});
         }
-    });
+        }else {
+            res.status(400).json({error: true, message: textTranslate.find("InvalidUser"), data: null});
+        }
+    } catch (err) {
+        res.status(400).json({error: false, message: err});
+    }
 }
 module.exports = {
     create,
