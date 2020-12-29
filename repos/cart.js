@@ -7,7 +7,7 @@ const creteCart = async (req, res, next) => {
     try {
         const cart = await cartModel.findOne({uuid, status: configs.cartStatus.inProgress}).exec()
         if (cart) {
-            res.status(201).json({
+            return res.status(201).json({
                 error: false,
                 message: textTranslate.find("userAlreadyHaveCart"),
                 data: cart["_doc"]
@@ -18,7 +18,7 @@ const creteCart = async (req, res, next) => {
             const currency = configs.currency
 
             const createdCart = await cartModel.create({uuid, total, createDate, currency,})
-            res.status(201).json({
+            return res.status(201).json({
                 error: false,
                 message: textTranslate.find("cartCreatedSuccessfully"),
                 data: createdCart["_doc"]
@@ -26,7 +26,7 @@ const creteCart = async (req, res, next) => {
         }
 
     } catch (err) {
-        res.status(400).json({error: true, message: err});
+        return res.status(400).json({error: true, message: err});
     }
 
 }
@@ -180,7 +180,7 @@ const updateItems = async (req, res, next) => {
                     await productModel.update({puid}, {quantity: totalQuantity}).exec()
                 }))
                 const updatedCart = await cartModel.findOne({cuid}).exec()
-                res.status(201).json({
+                return res.status(201).json({
                     error: false,
                     message: textTranslate.find("cartUpdatesSuccessfully"),
                     data: {
@@ -194,7 +194,7 @@ const updateItems = async (req, res, next) => {
                 });
             }
         } else {
-            res.status(404).json({
+            return res.status(404).json({
                 error: true,
                 message: textTranslate.find("cartWasNotFound"),
                 data: {}
@@ -202,7 +202,7 @@ const updateItems = async (req, res, next) => {
         }
     } catch
         (err) {
-        res.status(400).json({error: false, message: err});
+        return res.status(400).json({error: false, message: err});
     }
 }
 const deleteCart = (req, res, next) => {
@@ -219,14 +219,14 @@ const deleteCart = (req, res, next) => {
     }
     cartModel.findOne({uuid, cuid}, function (err, cart) {
         if (err) {
-            res.status(400).json({error: false, message: err});
+            return res.status(400).json({error: false, message: err});
         } else {
             if (cart) {
                 cartModel.deleteOne({_id: cart["_doc"]["_id"]}, function (err) {
                     if (err) {
-                        res.status(400).json({error: true, message: err});
+                        return res.status(400).json({error: true, message: err});
                     } else {
-                        res.status(201).json({
+                        return res.status(201).json({
                             error: false,
                             message: textTranslate.find("cartDeletedSuccessfully"),
                             data: {}
@@ -234,7 +234,7 @@ const deleteCart = (req, res, next) => {
                     }
                 });
             } else
-                res.status(400).json({
+                return res.status(400).json({
                     error: false,
                     message: textTranslate.find("cartWasNotFound"),
                     data: {}
@@ -248,16 +248,16 @@ const getCart = (req, res, next) => {
     const {cuid} = req.params
     cartModel.findOne({cuid, uuid}, function (err, cart) {
         if (err) {
-            res.status(400).json({error: true, message: err});
+            return res.status(400).json({error: true, message: err});
         } else {
             if (cart)
-                res.status(201).json({
+                return res.status(201).json({
                     error: false,
                     message: textTranslate.find("cartFound"),
                     data: {cart: cart['_doc']}
                 });
             else
-                res.status(404).json({
+                return res.status(404).json({
                     error: true,
                     message: textTranslate.find("cartWasNotFound"),
                     data: {}
@@ -275,16 +275,16 @@ const getCarts = (req, res, next) => {
         search.status = status
     cartModel.find({...search}, function (err, product) {
         if (err) {
-            res.status(400).json({error: true, message: err});
+            return res.status(400).json({error: true, message: err});
         } else {
             if (product)
-                res.status(201).json({
+                return res.status(201).json({
                     error: false,
                     message: textTranslate.find("cartFound"),
                     data: {product: product['_doc']}
                 });
             else
-                res.status(404).json({
+                return res.status(404).json({
                     error: true,
                     message: textTranslate.find("cartWasNotFound"),
                     data: {}
@@ -334,7 +334,7 @@ const checkout = async (req, res, next) => {
                 }
             }))
             if (errorMsg.length > 0) {
-                res.status(404).json({
+                return res.status(404).json({
                     error: true,
                     message: errorMsg,
                     data: {}
@@ -358,20 +358,20 @@ const checkout = async (req, res, next) => {
             await cartModel.update({cuid}, {status: configs.cartStatus.submitted}).exec()
             const updatedCart = await cartModel.findOne({cuid, uuid}).exec()
             //TODO:send email
-            res.status(201).json({
+            return res.status(201).json({
                 error: false,
                 message: textTranslate.find("cartUpdatesSuccessfully"),
                 data: {cart: updatedCart['_doc']}
             });
         } else {
-            res.status(404).json({
+            return res.status(404).json({
                 error: true,
                 message: textTranslate.find("cartWasNotFound"),
                 data: {}
             });
         }
     } catch (err) {
-        res.status(400).json({error: true, message: err});
+        return res.status(400).json({error: true, message: err});
     }
 
 }

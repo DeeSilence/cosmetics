@@ -1,8 +1,9 @@
+const {calculateDiscount} = require("../utils/calculations");
 const {productModel} = require("../models/product")
 const addProduct = async (req, res, next) => {
     if (req.userInfo && req.userInfo.isAdmin === true) {
         const {
-            name, category, description, originalPrice, salePrice, discount
+            name, category, description, originalPrice, salePrice
 
         } = req.body
         let missingRequired = ''
@@ -21,7 +22,13 @@ const addProduct = async (req, res, next) => {
                 message: missingRequired + textTranslate.find("wasNotPassed"),
             });
         }
+        if(parseFloat(originalPrice)<parseFloat(salePrice))
+            return res.status(400).json({
+                error: true,
+                message: textTranslate.find("saleGreaterThanOriginal"),
+            });
         try {
+            const discount =  calculateDiscount(originalPrice,salePrice)
             const product = await productModel.create({name, category, description, originalPrice, salePrice, discount})
             return res.status(201).json({
                 error: false,
@@ -199,7 +206,7 @@ const getAllProducts = async (req, res, next) => {
 const addSKU = async (req, res, next) => {
     if (req.userInfo && req.userInfo.isAdmin === true) {
         const {
-            puid, name, description, originalPrice, salePrice, discount, quantity
+            puid, name, description, originalPrice, salePrice, quantity
         } = req.body
         let missingRequired = ''
         if (!puid)
@@ -219,9 +226,15 @@ const addSKU = async (req, res, next) => {
                 message: missingRequired + textTranslate.find("wasNotPassed"),
             });
         }
+        if(parseFloat(originalPrice)<parseFloat(salePrice))
+            return res.status(400).json({
+                error: true,
+                message: textTranslate.find("saleGreaterThanOriginal"),
+            });
         try {
             const product = await productModel.findOne({puid}).exec();
             if (product) {
+                const discount =  calculateDiscount(originalPrice,salePrice)
                 product['_doc'].skus.push({puid, name, description, originalPrice, salePrice, discount, quantity})
                 await product.save()
                 let totalQuantity = 0;
@@ -259,7 +272,7 @@ const addSKU = async (req, res, next) => {
 const updateSKU = async (req, res, next) => {
     if (req.userInfo && req.userInfo.isAdmin === true) {
         const {
-            puid, skuid, name, description, originalPrice, salePrice, discount, quantity
+            puid, skuid, name, description, originalPrice, salePrice, quantity
         } = req.body
         let missingRequired = ''
         if (!puid)
@@ -272,6 +285,11 @@ const updateSKU = async (req, res, next) => {
                 message: missingRequired + textTranslate.find("wasNotPassed"),
             });
         }
+        if(parseFloat(originalPrice)<parseFloat(salePrice))
+            return res.status(400).json({
+                error: true,
+                message: textTranslate.find("saleGreaterThanOriginal"),
+            });
         try {
             const product = await productModel.findOne({puid}).exec()
             if (product) {
@@ -282,6 +300,7 @@ const updateSKU = async (req, res, next) => {
                     }
                 }).find(item => item.skuid === skuid)
                 if (sku) {
+                    const discount =  calculateDiscount(originalPrice,salePrice)
                     product['_doc'].skus.pull(sku['_doc']._id)
                     product['_doc'].skus.push({name, description, originalPrice, salePrice, discount, quantity})
                     await product.save()

@@ -30,6 +30,7 @@ module.exports = {
         fileWasNotFound:"File Was Not Found",
         noSkuAddedFor:"No sku added for ",
         somethingWentWrong:"Something Went Wrong",
+        saleGreaterThanOriginal:"Sale price greater than original price",
     },
     ar: {}
 }

@@ -24,9 +24,12 @@ const cors = require('cors')
 const app = express();
 app.use(logger('dev'));
 app.use(cors({credentials: true, origin: true}))
+app.options("*", (req, res) => {
+    res.status(200).send("Preflight request allowed");
+});
 app.use(bodyParser.json());
 app.use('/healthCheck', healthCheck)
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(specs, { explorer: true }));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(specs, {explorer: true}));
 app.use('/:lang/users', users)
 app.use('/:lang/files', validateUser, files)
 app.use('/:lang/products', validateUser, product)
