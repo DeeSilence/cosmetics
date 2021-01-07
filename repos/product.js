@@ -60,7 +60,6 @@ const updateProduct = async (req, res, next) => {
         if (!puid)
             missingRequired += 'puid, '
         if (missingRequired.length > 0) {
-            return
             return res.status(400).json({
                 error: true,
                 message: missingRequired + textTranslate.find("wasNotPassed"),

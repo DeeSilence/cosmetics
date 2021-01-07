@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const {addressSchema} = require("./address");
 const saltRounds = 10;//Define a schema
 const Schema = mongoose.Schema;
 const UserSchema = new Schema({
@@ -47,6 +48,7 @@ const UserSchema = new Schema({
         type: Boolean,
         default: false,
     },
+    listOfAddress:[addressSchema]
 });// hash user password before saving into database
 UserSchema.pre('save', function (next) {
     this.password = bcrypt.hashSync(this.password, saltRounds);

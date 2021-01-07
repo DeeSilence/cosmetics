@@ -93,7 +93,71 @@ const authenticate = async (req, res, next) => {
         return res.status(400).json({error: false, message: err});
     }
 }
+const getUser = async (req, res, next) => {
+    const {isAdmin} = req.userInfo
+    const {uuid} = req.params
+    if (!isAdmin)
+        return res.status(400).json({
+            error: true,
+            message: textTranslate.find('notAuthorized'),
+
+        })
+    let missingRequired = ''
+    if (!uuid)
+        missingRequired += 'uuid, '
+    if (missingRequired.length > 0) {
+        return res.status(400).json({
+            error: true,
+            message: missingRequired + textTranslate.find("wasNotPassed"),
+        });
+    }
+    try {
+        const user = await userModel.findOne({uuid}).exec()
+        if (!user)
+            return res.status(404).json({
+                error: true,
+                message: textTranslate.find("userWasNotFound"),
+                data: {}
+            });
+        return res.status(201).json({
+            error: false,
+            message: textTranslate.find("userFound"),
+            data: {cart: user['_doc']}
+        });
+    } catch (err) {
+        return res.status(400).json({error: true, message: err});
+    }
+}
+const getUsers = async (req, res, next) => {
+    const {isAdmin} = req.userInfo
+    if (!isAdmin)
+        return res.status(400).json({
+            error: true,
+            message: textTranslate.find('notAuthorized'),
+
+        })
+
+    try {
+        const users = await userModel.find({}).exec()
+        if (users)
+            return res.status(201).json({
+                error: false,
+                message: textTranslate.find("userFound"),
+                data: {users: users.map(i => i['_doc'])}
+            });
+        else
+            return res.status(404).json({
+                error: true,
+                message: textTranslate.find("userWasNotFound"),
+                data: {}
+            });
+    } catch (err) {
+        return res.status(400).json({error: true, message: err});
+    }
+}
 module.exports = {
     create,
-    authenticate
+    authenticate,
+    getUser,
+    getUsers
 }

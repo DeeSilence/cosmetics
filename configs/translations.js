@@ -31,6 +31,8 @@ module.exports = {
         noSkuAddedFor:"No sku added for ",
         somethingWentWrong:"Something Went Wrong",
         saleGreaterThanOriginal:"Sale price greater than original price",
+        addressMissing:"Address Missing",
+        userWasNotFound:"user Was Not Found",
     },
     ar: {}
 }

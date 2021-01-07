@@ -205,6 +205,45 @@ const updateItems = async (req, res, next) => {
         return res.status(400).json({error: false, message: err});
     }
 }
+const updateCartStatus = async (req, res, next) => {
+    const {cuid} = req.params
+    const {notes, status} = req.body
+    const {isAdmin} = req.userInfo
+    if (!isAdmin)
+        return res.status(400).json({
+            error: true,
+            message: textTranslate.find('notAuthorized'),
+
+        })
+    try {
+        let missingRequired = ''
+        if (!status || !Object.keys(configs.cartStatus).find(key => configs.cartStatus[key] === status))
+            missingRequired += 'status, '
+        if (missingRequired.length > 0) {
+            return res.status(400).json({
+                error: true,
+                message: missingRequired + textTranslate.find("wasNotPassed"),
+            });
+        }
+        const cart = await cartModel.findOne({cuid}).exec()
+        if (!cart)
+            return res.status(404).json({
+                error: true,
+                message: textTranslate.find("cartWasNotFound"),
+                data: {}
+            });
+        await cartModel.update({cuid}, {status, notes}).exec()
+        const updatedCart = await cartModel.findOne({cuid}).exec()
+        return res.status(201).json({
+            error: false,
+            message: textTranslate.find("cartUpdatesSuccessfully"),
+            data: updatedCart['_doc']
+        });
+
+    } catch (err) {
+        return res.status(400).json({error: true, message: err});
+    }
+}
 const deleteCart = (req, res, next) => {
     const {uuid} = req.userInfo
     const {cuid} = req.params
@@ -265,7 +304,7 @@ const getCart = (req, res, next) => {
         }
     });
 }
-const getCarts = (req, res, next) => {
+const getCarts = async (req, res, next) => {
     const {uuid, isAdmin} = req.userInfo
     const {status, sort} = req.query
     const search = {}
@@ -273,24 +312,23 @@ const getCarts = (req, res, next) => {
         search.uuid = uuid
     if (status && Object.keys(configs.cartStatus).find(key => configs.cartStatus[key] === status))
         search.status = status
-    cartModel.find({...search}, function (err, product) {
-        if (err) {
-            return res.status(400).json({error: true, message: err});
-        } else {
-            if (product)
-                return res.status(201).json({
-                    error: false,
-                    message: textTranslate.find("cartFound"),
-                    data: {product: product['_doc']}
-                });
-            else
-                return res.status(404).json({
-                    error: true,
-                    message: textTranslate.find("cartWasNotFound"),
-                    data: {}
-                });
-        }
-    });
+    try {
+        const product = await cartModel.find({...search}).exec()
+        if (product)
+            return res.status(201).json({
+                error: false,
+                message: textTranslate.find("cartFound"),
+                data: {listOfCarts: product.map(i => i['_doc'])}
+            });
+        else
+            return res.status(404).json({
+                error: true,
+                message: textTranslate.find("cartWasNotFound"),
+                data: {}
+            });
+    } catch (err) {
+        return res.status(400).json({error: true, message: err});
+    }
 }
 const checkout = async (req, res, next) => {
     const {uuid} = req.userInfo
@@ -299,6 +337,12 @@ const checkout = async (req, res, next) => {
         const cart = await cartModel.findOne({cuid, uuid}).exec()
         if (cart) {
             const items = cart['_doc'].items.map(i => i['_doc'])
+            if(Object.keys(cart['_doc'].shippingAddress).length === 0)
+                return res.status(400).json({
+                    error: true,
+                    message: textTranslate.find("addressMissing"),
+                    data: {}
+                });
             await cartModel.update({cuid}, {status: configs.cartStatus.submitted})
             // TODO:send email
             let errorMsg = ''
@@ -375,4 +419,5 @@ const checkout = async (req, res, next) => {
     }
 
 }
-module.exports = {creteCart, updateItems, deleteCart, getCart, getCarts, checkout}
+
+module.exports = {creteCart, updateItems, deleteCart, getCart, getCarts, checkout, updateCartStatus}

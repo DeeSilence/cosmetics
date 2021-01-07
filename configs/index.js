@@ -15,10 +15,10 @@ module.exports = {
     jwtSecretKey: 'RS256',
     imagesPath: 'uploads/images',
     videosPath: 'uploads/videos',
-    cartStatus: {
-        inProgress: "IN_PROGRESS",
-        submitted: "SUBMITTED",
-        fulfilled: "FULFILLED",
-        cancelled: "CANCELLED"
-    }
+        cartStatus: {
+            inProgress: "IN_PROGRESS",
+            submitted: "SUBMITTED",
+            fulfilled: "FULFILLED",
+            cancelled: "CANCELLED"
+        }
 }

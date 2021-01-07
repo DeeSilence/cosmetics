@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const {addressSchema} = require("./address");
 const {productSchema} = require('./product')
 const Schema = mongoose.Schema;
 const CartItemSchema = new Schema({
@@ -22,7 +23,6 @@ const CartItemSchema = new Schema({
     product: {
         type: productSchema
     }
-
 });
 mongoose.model('CartItem', CartItemSchema);
 const CartSchema = new Schema({
@@ -73,6 +73,11 @@ const CartSchema = new Schema({
         default: configs.cartStatus.inProgress,
     },
     items: [CartItemSchema],
+    notes: {
+        type: String,
+        trim: true,
+    },
+    shippingAddress: {type: addressSchema, required: true, default: {}},
 
 });
 module.exports = mongoose.model('Cart', CartSchema);
