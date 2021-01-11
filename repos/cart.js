@@ -244,6 +244,45 @@ const updateCartStatus = async (req, res, next) => {
         return res.status(400).json({error: true, message: err});
     }
 }
+const setAddress = async (req, res, next) => {
+    const {latitude, longitude, addressDescription,cuid} = req.body
+    const {uuid} = req.userInfo
+    let missingRequired = ''
+    if (!cuid)
+        missingRequired += 'cuid, '
+    if (longitude && !latitude)
+        missingRequired += 'latitude, '
+    if (!longitude && latitude)
+        missingRequired += 'longitude, '
+    if (!addressDescription && !latitude && longitude)
+        missingRequired += 'addressDescription, '
+    if (missingRequired.length > 0) {
+        return res.status(400).json({
+            error: true,
+            message: missingRequired + textTranslate.find("wasNotPassed"),
+        });
+    }
+    try {
+        const cart = await cartModel.findOne({cuid, uuid}).exec()
+        if (!cart)
+            return res.status(404).json({
+                error: true,
+                message: textTranslate.find("cartWasNotFound"),
+                data: {}
+            });
+        const shippingAddress = {latitude, longitude, addressDescription}
+        await cartModel.update({cuid, uuid}, {shippingAddress}).exec()
+        const updatedCart = await cartModel.findOne({cuid, uuid}).exec()
+        return res.status(201).json({
+            error: false,
+            message: textTranslate.find("cartUpdatesSuccessfully"),
+            data: updatedCart['_doc']
+        });
+
+    } catch (err) {
+        return res.status(400).json({error: true, message: err});
+    }
+}
 const deleteCart = (req, res, next) => {
     const {uuid} = req.userInfo
     const {cuid} = req.params
@@ -337,7 +376,7 @@ const checkout = async (req, res, next) => {
         const cart = await cartModel.findOne({cuid, uuid}).exec()
         if (cart) {
             const items = cart['_doc'].items.map(i => i['_doc'])
-            if(Object.keys(cart['_doc'].shippingAddress).length === 0)
+            if (Object.keys(cart['_doc'].shippingAddress).length === 0)
                 return res.status(400).json({
                     error: true,
                     message: textTranslate.find("addressMissing"),
@@ -420,4 +459,4 @@ const checkout = async (req, res, next) => {
 
 }
 
-module.exports = {creteCart, updateItems, deleteCart, getCart, getCarts, checkout, updateCartStatus}
+module.exports = {creteCart, updateItems, deleteCart, getCart, getCarts, checkout, updateCartStatus, setAddress}

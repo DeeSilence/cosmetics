@@ -1,10 +1,12 @@
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 const AddressSchema = new Schema({
     auid: {
         type: mongoose.Schema.Types.ObjectId,
         trim: true,
         required: true,
-        unique: true,
-        index: true,
+        // unique: true,
+        // index: true,
         auto: true,
     },
     latitude: {
@@ -20,7 +22,7 @@ const AddressSchema = new Schema({
     addressDescription: {
         type: String,
         trim: true,
-        required: true,
+        required: false,
     },
 });
 

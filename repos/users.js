@@ -45,10 +45,11 @@ const create = (req, res, next) => {
             }
         }
     });
+    const hashedPassword  = bcrypt.hashSync(this.password, global.configs.saltRounds);
     userModel.create({
         name,
         email,
-        password,
+        password:hashedPassword,
         phoneNumber,
         gender,
         dataOfBirth
@@ -93,6 +94,140 @@ const authenticate = async (req, res, next) => {
         return res.status(400).json({error: false, message: err});
     }
 }
+const addAddress = async (req, res, next) => {
+    const {uuid} = req.userInfo
+    const {latitude, longitude, addressDescription} = req.body
+
+    let missingRequired = ''
+    if (longitude && !latitude)
+        missingRequired += 'latitude, '
+    if (!longitude && latitude)
+        missingRequired += 'longitude, '
+    if (!addressDescription && !latitude && longitude)
+        missingRequired += 'addressDescription, '
+    if (missingRequired.length > 0) {
+        return res.status(400).json({
+            error: true,
+            message: missingRequired + textTranslate.find("wasNotPassed"),
+        });
+    }
+    try {
+        const userInfo = await userModel.findOne({uuid}).exec()
+        if (userInfo) {
+            userInfo['_doc'].listOfAddress.push({latitude, longitude, addressDescription})
+            await userInfo.save()
+            const updatedUserInfo = await userModel.findOne({uuid}).exec()
+            return res.status(201).json({
+                error: false,
+                message: textTranslate.find("addressAddedSuccessfully"),
+                data: updatedUserInfo['_doc']
+            });
+        } else {
+            return res.status(400).json({error: true, message: textTranslate.find("InvalidUser"), data: null});
+        }
+    } catch (err) {
+        return res.status(400).json({error: true, message: err});
+    }
+}
+const updateAddress = async (req, res, next) => {
+    const {uuid} = req.userInfo
+    const {latitude, longitude, addressDescription, auid} = req.body
+
+    let missingRequired = ''
+    if (!auid)
+        missingRequired += 'auid, '
+    if (longitude && !latitude)
+        missingRequired += 'latitude, '
+    if (!longitude && latitude)
+        missingRequired += 'longitude, '
+    if (!addressDescription && !latitude && longitude)
+        missingRequired += 'addressDescription, '
+    if (missingRequired.length > 0) {
+        return res.status(400).json({
+            error: true,
+            message: missingRequired + textTranslate.find("wasNotPassed"),
+        });
+    }
+    try {
+        const userInfo = await userModel.findOne({uuid}).exec()
+        if (userInfo) {
+            const address = userInfo['_doc'].listOfAddress.map(k => {
+                return {
+                    ...k,
+                    auid: JSON.stringify(k.auid).replaceAll('"', "")
+                }
+            }).find(item => item.auid === auid)
+            if (address) {
+                userInfo['_doc'].listOfAddress.pull(address['_doc']._id)
+                userInfo['_doc'].listOfAddress.push({longitude, latitude, addressDescription})
+                await userInfo.save()
+                const updatedUserInfo = await userModel.findOne({uuid}).exec()
+                return res.status(201).json({
+                    error: false,
+                    message: textTranslate.find("addressUpdatesSuccessfully"),
+                    data: updatedUserInfo['_doc']
+                });
+            } else {
+                return res.status(404).json({
+                    error: true,
+                    message: textTranslate.find("addressWasNotFound"),
+                    data: {}
+                });
+            }
+        } else {
+            return res.status(400).json({error: true, message: textTranslate.find("InvalidUser"), data: null});
+        }
+    } catch (err) {
+        return res.status(400).json({error: true, message: err});
+    }
+}
+const deleteAddress = async (req, res, next) => {
+    const {uuid} = req.userInfo
+    const {auid} = req.body
+
+    let missingRequired = ''
+    if (!auid)
+        missingRequired += 'auid, '
+
+    if (missingRequired.length > 0) {
+        return res.status(400).json({
+            error: true,
+            message: missingRequired + textTranslate.find("wasNotPassed"),
+        });
+    }
+    try {
+        const userInfo = await userModel.findOne({uuid}).exec()
+        if (userInfo) {
+            const address = userInfo['_doc'].listOfAddress.map(k => {
+                return {
+                    ...k,
+                    auid: JSON.stringify(k.auid).replaceAll('"', "")
+                }
+            }).find(item => item.auid === auid)
+            if (address) {
+                userInfo['_doc'].listOfAddress.pull(address['_doc']._id)
+                await userInfo.save()
+                const updatedUserInfo = await userModel.findOne({uuid}).exec()
+                return res.status(201).json({
+                    error: false,
+                    message: textTranslate.find("addressUpdatesSuccessfully"),
+                    data: updatedUserInfo['_doc']
+                });
+            } else {
+                return res.status(404).json({
+                    error: true,
+                    message: textTranslate.find("addressWasNotFound"),
+                    data: {}
+                });
+            }
+
+        } else {
+            return res.status(400).json({error: true, message: textTranslate.find("InvalidUser"), data: null});
+        }
+    } catch (err) {
+        return res.status(400).json({error: true, message: err});
+    }
+}
 const getUser = async (req, res, next) => {
     const {isAdmin} = req.userInfo
     const {uuid} = req.params
@@ -122,7 +257,7 @@ const getUser = async (req, res, next) => {
         return res.status(201).json({
             error: false,
             message: textTranslate.find("userFound"),
-            data: {cart: user['_doc']}
+            data: { user:user['_doc']}
         });
     } catch (err) {
         return res.status(400).json({error: true, message: err});
@@ -159,5 +294,8 @@ module.exports = {
     create,
     authenticate,
     getUser,
-    getUsers
+    getUsers,
+    addAddress,
+    updateAddress,
+    deleteAddress
 }

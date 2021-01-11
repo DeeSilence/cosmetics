@@ -33,6 +33,9 @@ module.exports = {
         saleGreaterThanOriginal:"Sale price greater than original price",
         addressMissing:"Address Missing",
         userWasNotFound:"user Was Not Found",
+        addressAddedSuccessfully:"address Added Successfully",
+        addressWasNotFound:"address Was Not Found",
+        addressUpdatesSuccessfully:"address Updates Successfully",
     },
     ar: {}
 }
