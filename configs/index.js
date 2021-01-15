@@ -21,5 +21,9 @@ module.exports = {
         fulfilled: "FULFILLED",
         cancelled: "CANCELLED"
     },
+    imageTypes: {
+        profileImage: "PROFILE_IMAGE",
+        coverImage: "COVER_IMAGE",
+    },
     saltRounds: 10,
 }

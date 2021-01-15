@@ -19,6 +19,16 @@ const ImageSchema = new Schema({
         trim: true,
         required: true,
     },
+    skuid: {
+        type: String,
+        trim: true,
+        required: false,
+    },
+    type:{
+        type: String,
+        trim: true,
+        required: true,
+    },
     originalName: {
         type: String,
         trim: true,

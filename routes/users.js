@@ -9,5 +9,5 @@ router.put('/address', validateUser,userController.updateAddress);
 router.delete('/address', validateUser,userController.deleteAddress);
 router.get('/:uuid', validateUser, userController.getUser);
 router.get('/', validateUser, userController.getUsers);
-//TODO:add update profile and address
+//TODO:add update profile
 module.exports = router;

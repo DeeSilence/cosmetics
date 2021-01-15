@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const {
     creteCart,
-    updateItems,
+    addItemToCart,
+    removeItemFromCart,
     deleteCart,
     getCart,
     getCarts,
@@ -11,7 +12,8 @@ const {
     setAddress
 } = require('../repos/cart')
 router.post(`/`, creteCart);
-router.post(`/items`, updateItems);
+router.post(`/item`, addItemToCart);
+router.delete(`/item`, removeItemFromCart);
 router.post(`/address`, setAddress);
 router.delete('/:cuid', deleteCart);
 router.post('/:cuid/status', updateCartStatus);

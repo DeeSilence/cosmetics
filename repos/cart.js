@@ -30,17 +30,23 @@ const creteCart = async (req, res, next) => {
     }
 
 }
-const updateItems = async (req, res, next) => {
+const addItemToCart = async (req, res, next) => {
     const {uuid} = req.userInfo
     const {
         cuid,
-        items
+        puid,
+        skuid,
+        quantity
     } = req.body
     let missingRequired = ''
     if (!cuid)
         missingRequired += 'cuid, '
-    if (!items)
-        missingRequired += 'items, '
+    if (!puid)
+        missingRequired += 'puid, '
+    if (!skuid)
+        missingRequired += 'skuid, '
+    if (!quantity)
+        missingRequired += 'quantity, '
 
     if (missingRequired.length > 0) {
         return res.status(400).json({
@@ -49,160 +55,244 @@ const updateItems = async (req, res, next) => {
         });
     }
     try {
+        // find cart
         const cart = await cartModel.findOne({cuid, uuid, status: configs.cartStatus.inProgress}).exec()
-        if (cart) {
-            //first find the car
-            //             //send search for if the puid
-            //             //if exist extract price and add item to cart
-            //             //update cart
-            //
-            if (Array.isArray(items)) {
-                const currentCartItem = cart['_doc'].items.map(i => i["_doc"])
-                let errorMsg = null
-                await Promise.all(_.map(items, async ({puid, skuid, quantity}, index) => {
-                        if (!puid)
-                            missingRequired += 'item[' + index + '].puid, '
-                        if (!skuid)
-                            missingRequired += 'item[' + index + '].skuid, '
-                        if (!quantity)
-                            missingRequired += 'item[' + index + '].quantity, '
-                        if (missingRequired.length > 0) {
-                            errorMsg = missingRequired + textTranslate.find("wasNotPassed")
-                            return true
-                        }
-                        const product = await productModel.findOne({puid}).exec()
-                        if (product) {
-                            const skus = product['_doc'].skus
-                            if (skus) {
-                                const selectedSku = skus.map(k => k['_doc']).map(k => {
-                                    return {
-                                        ...k,
-                                        skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
-                                        _id: JSON.stringify(k._id).replaceAll('"', ""),
-                                    }
-                                }).find(k => k.skuid === skuid)
-                                if (selectedSku) {
-                                    if (selectedSku.quantity < Math.abs(Math.round(quantity))) {
-                                        errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " and skuID " + selectedSku.skuid + " only (" + selectedSku.quantity + ") items in stock"
-                                        return true
-                                    }
-                                    if (selectedSku.quantity === 0) {
-                                        errorMsg = product['_doc'].name + " with id " + product['_doc'].puid + " and skuID " + selectedSku.skuid + " only (" + selectedSku.quantity + ") out of stock"
-                                        return true
-                                    }
-                                    let i = null
-                                    if (currentCartItem.find((k, ik) => {
-                                        if (k.skuid === skuid && k.puid === puid) {
-                                            i = ik
-                                            return k
-                                        }
-                                    })) {
-                                        currentCartItem[i].quantity = Math.abs(Math.round(quantity))
-                                        currentCartItem[i].product = product['_doc']
-                                    } else {
-                                        const newItem = {}
-                                        newItem.quantity = Math.abs(Math.round(quantity))
-                                        newItem.puid = puid
-                                        newItem.skuid = skuid
-                                        newItem.product = product['_doc']
-                                        currentCartItem.push(newItem)
-                                    }
-                                } else {
-                                    errorMsg = `item[${index}].sku ` + textTranslate.find("notValid")
-                                    return true
-                                }
-                            } else {
-                                errorMsg = textTranslate.find("noSkuAddedFor") + ` item[${index}].sku`
-                                return true
-                            }
-                        } else {
-                            errorMsg = `item[${index}].puid ` + textTranslate.find("notValid")
-                            return true
-                        }
-
-                    }
-                    )
-                )
-                if (errorMsg) {
-                    return res.status(400).json({
-                        error: true,
-                        message: errorMsg,
-                    });
-                }
-                let total = 0
-                currentCartItem.forEach((a) => {
-                    let skuIndex = null
-                    a.product.skus.map(k => k['_doc']).map(k => {
-                        return {
-                            ...k,
-                            skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
-                            _id: JSON.stringify(k._id).replaceAll('"', ""),
-                        }
-                    }).forEach((k, ik) => {
-                        if (k.skuid === a.skuid) {
-                            skuIndex = ik
-                            return k
-                        }
-                    })
-                    total += (parseFloat(a.product.skus[skuIndex].salePrice || a.product.skus[skuIndex].originalPrice) * a.quantity)
-                })
-                await cartModel.update({cuid}, {total, items: currentCartItem}).exec()
-                await Promise.all(_.map(items, async ({puid, skuid, quantity}, index) => {
-                    let skuIndex = null
-                    const product = await productModel.findOne({puid}).exec()
-                    product['_doc'].skus.map(k => k['_doc']).map(k => {
-                        return {
-                            ...k,
-                            skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
-                            _id: JSON.stringify(k._id).replaceAll('"', ""),
-                        }
-                    }).forEach((k, ik) => {
-                        if (k.skuid === skuid) {
-                            skuIndex = ik
-                            return k
-                        }
-                    })
-                    const itemToUpdate = product['_doc'].skus.map(k => k['_doc']).map(k => {
-                        return {
-                            ...k,
-                            skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
-                            _id: JSON.stringify(k._id).replaceAll('"', ""),
-                        }
-                    })[skuIndex]
-                    itemToUpdate.quantity = itemToUpdate.quantity - quantity
-                    product['_doc'].skus.pull(itemToUpdate._id)
-                    product['_doc'].skus.push(itemToUpdate)
-                    await product.save()
-                    let totalQuantity = 0;
-                    product['_doc'].skus.forEach(item => {
-                        totalQuantity += item.quantity
-                    })
-                    await productModel.update({puid}, {quantity: totalQuantity}).exec()
-                }))
-                const updatedCart = await cartModel.findOne({cuid}).exec()
-                return res.status(201).json({
-                    error: false,
-                    message: textTranslate.find("cartUpdatesSuccessfully"),
-                    data: {
-                        cart: updatedCart["_doc"]
-                    }
-                });
-            } else {
-                return res.status(404).json({
-                    error: true,
-                    message: "items is Array Type" + textTranslate.find("wasNotPassed"),
-                });
-            }
-        } else {
+        if (!cart)
             return res.status(404).json({
                 error: true,
                 message: textTranslate.find("cartWasNotFound"),
                 data: {}
             });
+
+        const currentCartItems = cart['_doc'].items.map(i => i["_doc"]).map(k => {
+            return {
+                ...k,
+                _id: JSON.stringify(k._id).replaceAll('"', ""),
+                puid: JSON.stringify(k.puid).replaceAll('"', ""),
+                skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+            }
+        })
+        // find puid and skuid
+        const product = await productModel.findOne({puid}).exec()
+        if (!product)
+            return res.status(404).json({
+                error: true,
+                message: `puid ` + puid + textTranslate.find("notValid"),
+                data: {}
+            });
+
+        const productSkus = product['_doc'].skus
+        if (!productSkus)
+            return res.status(404).json({
+                error: true,
+                message: textTranslate.find("noSkuAddedFor") + puid,
+                data: {}
+            });
+        const selectedSku = productSkus.map(k => k['_doc']).map(k => {
+            return {
+                ...k,
+                skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+                _id: JSON.stringify(k._id).replaceAll('"', ""),
+            }
+        }).find(k => k.skuid === skuid)
+        if (!selectedSku)
+            return res.status(404).json({
+                error: true,
+                message: `skuid ` + skuid + textTranslate.find("notValid"),
+                data: {}
+            });
+        //update cart and product
+        if (!(selectedSku.quantity >= quantity))
+            return res.status(404).json({
+                error: true,
+                message: product['_doc'].name + " with id " + product['_doc'].puid + " and skuID " + selectedSku.skuid + " only (" + selectedSku.quantity + ") items in stock",
+                data: {}
+            });
+        const cartItem = currentCartItems.find(item => item.skuid === skuid)
+        if (cartItem) {
+            cartItem.quantity += Math.abs(Math.round(quantity))
+            cart['_doc'].items.pull(cartItem._id)
+            cart['_doc'].items.push(cartItem)
+            await cart.save()
+        } else {
+            const newItem = {}
+            newItem.quantity = Math.abs(Math.round(quantity))
+            newItem.puid = puid
+            newItem.skuid = skuid
+            newItem.product = product['_doc']
+            cart['_doc'].items.push(newItem)
+            await cart.save()
         }
-    } catch
-        (err) {
-        return res.status(400).json({error: false, message: err});
+        selectedSku.quantity -= quantity
+        product['_doc'].skus.pull(selectedSku._id)
+        product['_doc'].skus.push(selectedSku)
+        await product.save()
+        let totalQuantity = 0;
+        product['_doc'].skus.forEach(item => {
+            totalQuantity += item.quantity
+        })
+        let total = 0
+        cart['_doc'].items.forEach((a) => {
+            let skuIndex = null
+            a.product.skus.map(k => k['_doc']).map(k => {
+                return {
+                    ...k,
+                    skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+                    _id: JSON.stringify(k._id).replaceAll('"', ""),
+                }
+            }).forEach((k, ik) => {
+                if (k.skuid === a.skuid) {
+                    skuIndex = ik
+                    return k
+                }
+            })
+            total += (parseFloat(a.product.skus[skuIndex].salePrice || a.product.skus[skuIndex].originalPrice) * a.quantity)
+        })
+        await productModel.update({puid}, {quantity: totalQuantity}).exec()
+        await cartModel.update({cuid}, {total}).exec()
+        const updatedCart = await cartModel.findOne({cuid}).exec()
+        return res.status(201).json({
+            error: false,
+            message: textTranslate.find("cartUpdatesSuccessfully"),
+            data: {
+                cart: updatedCart["_doc"]
+            }
+        });
+    } catch (err) {
+        return res.status(400).json({error: true, message: err});
+    }
+}
+const removeItemFromCart = async (req, res, next) => {
+    const {uuid} = req.userInfo
+    const {
+        cuid,
+        puid,
+        skuid,
+        quantity
+    } = req.body
+    let missingRequired = ''
+    if (!cuid)
+        missingRequired += 'cuid, '
+    if (!puid)
+        missingRequired += 'puid, '
+    if (!skuid)
+        missingRequired += 'skuid, '
+    if (!quantity)
+        missingRequired += 'quantity, '
+
+    if (missingRequired.length > 0) {
+        return res.status(400).json({
+            error: true,
+            message: missingRequired + textTranslate.find("wasNotPassed"),
+        });
+    }
+    try {
+        // find cart
+        const cart = await cartModel.findOne({cuid, uuid, status: configs.cartStatus.inProgress}).exec()
+        if (!cart)
+            return res.status(404).json({
+                error: true,
+                message: textTranslate.find("cartWasNotFound"),
+                data: {}
+            });
+
+        const currentCartItems = cart['_doc'].items.map(i => i["_doc"]).map(k => {
+            return {
+                ...k,
+                _id: JSON.stringify(k._id).replaceAll('"', ""),
+                puid: JSON.stringify(k.puid).replaceAll('"', ""),
+                skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+            }
+        })
+        // find puid and skuid
+        const product = await productModel.findOne({puid}).exec()
+        if (!product)
+            return res.status(404).json({
+                error: true,
+                message: `puid ` + puid + textTranslate.find("notValid"),
+                data: {}
+            });
+
+        const productSkus = product['_doc'].skus
+        if (!productSkus)
+            return res.status(404).json({
+                error: true,
+                message: textTranslate.find("noSkuAddedFor") + puid,
+                data: {}
+            });
+        const selectedSku = productSkus.map(k => k['_doc']).map(k => {
+            return {
+                ...k,
+                skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+                _id: JSON.stringify(k._id).replaceAll('"', ""),
+            }
+        }).find(k => k.skuid === skuid)
+        if (!selectedSku)
+            return res.status(404).json({
+                error: true,
+                message: `skuid ` + skuid + textTranslate.find("notValid"),
+                data: {}
+            });
+        //update cart and product
+        const cartItem = currentCartItems.find(item => item.skuid === skuid)
+        if (!(cartItem.quantity >= quantity))
+            return res.status(404).json({
+                error: true,
+                message: product['_doc'].name + " with id " + product['_doc'].puid + " and skuID " + selectedSku.skuid + " only (" + cartItem.quantity + ") items in cart",
+                data: {}
+            });
+
+        if (!cartItem)
+            return res.status(404).json({
+                error: true,
+                message: product['_doc'].name + " with id " + product['_doc'].puid + " and skuID " + selectedSku.skuid + " not in cart",
+                data: {}
+            });
+
+        cartItem.quantity -= Math.abs(Math.round(quantity))
+        cart['_doc'].items.pull(cartItem._id)
+        if (cartItem.quantity !== 0)
+            cart['_doc'].items.push(cartItem)
+
+        await cart.save()
+
+        selectedSku.quantity += quantity
+        product['_doc'].skus.pull(selectedSku._id)
+        product['_doc'].skus.push(selectedSku)
+        await product.save()
+        let totalQuantity = 0;
+        product['_doc'].skus.forEach(item => {
+            totalQuantity += item.quantity
+        })
+        let total = 0
+        cart['_doc'].items.forEach((a) => {
+            let skuIndex = null
+            a.product.skus.map(k => k['_doc']).map(k => {
+                return {
+                    ...k,
+                    skuid: JSON.stringify(k.skuid).replaceAll('"', ""),
+                    _id: JSON.stringify(k._id).replaceAll('"', ""),
+                }
+            }).forEach((k, ik) => {
+                if (k.skuid === a.skuid) {
+                    skuIndex = ik
+                    return k
+                }
+            })
+            total += (parseFloat(a.product.skus[skuIndex].salePrice || a.product.skus[skuIndex].originalPrice) * a.quantity)
+        })
+        await productModel.update({puid}, {quantity: totalQuantity}).exec()
+        await cartModel.update({cuid}, {total}).exec()
+        const updatedCart = await cartModel.findOne({cuid}).exec()
+        return res.status(201).json({
+            error: false,
+            message: textTranslate.find("cartUpdatesSuccessfully"),
+            data: {
+                cart: updatedCart["_doc"]
+            }
+        });
+    } catch (err) {
+        return res.status(400).json({error: true, message: err});
     }
 }
 const updateCartStatus = async (req, res, next) => {
@@ -245,7 +335,7 @@ const updateCartStatus = async (req, res, next) => {
     }
 }
 const setAddress = async (req, res, next) => {
-    const {latitude, longitude, addressDescription,cuid} = req.body
+    const {latitude, longitude, addressDescription, cuid} = req.body
     const {uuid} = req.userInfo
     let missingRequired = ''
     if (!cuid)
@@ -297,7 +387,7 @@ const deleteCart = (req, res, next) => {
     }
     cartModel.findOne({uuid, cuid}, function (err, cart) {
         if (err) {
-            return res.status(400).json({error: false, message: err});
+            return res.status(400).json({error: true, message: err});
         } else {
             if (cart) {
                 cartModel.deleteOne({_id: cart["_doc"]["_id"]}, function (err) {
@@ -383,7 +473,6 @@ const checkout = async (req, res, next) => {
                     data: {}
                 });
             await cartModel.update({cuid}, {status: configs.cartStatus.submitted})
-            // TODO:send email
             let errorMsg = ''
             await Promise.all(_.map(items, async (
                 {
@@ -459,4 +548,14 @@ const checkout = async (req, res, next) => {
 
 }
 
-module.exports = {creteCart, updateItems, deleteCart, getCart, getCarts, checkout, updateCartStatus, setAddress}
+module.exports = {
+    creteCart,
+    addItemToCart,
+    removeItemFromCart,
+    deleteCart,
+    getCart,
+    getCarts,
+    checkout,
+    updateCartStatus,
+    setAddress
+}

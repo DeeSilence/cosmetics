@@ -36,6 +36,7 @@ module.exports = {
         addressAddedSuccessfully:"address Added Successfully",
         addressWasNotFound:"address Was Not Found",
         addressUpdatesSuccessfully:"address Updates Successfully",
+        notValidImageType:"Not a Valid Image Type",
     },
     ar: {}
 }

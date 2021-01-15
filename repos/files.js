@@ -39,14 +39,23 @@ const upload = multer({storage: storage, fileFilter: filter});
 const uploadFile = async (req, res, next) => {
     try {
         if (req.file) {
-            const {puid} = req.body
+            const {puid, skuid, type} = req.body
             const {uuid} = req.userInfo
             const {filename, originalname, encoding, mimetype, destination, size} = req.file
+            if (!Object.keys(configs.imageTypes).find(i => configs.imageTypes[i] === type)) {
+                return res.status(400).json({
+                    error: true,
+                    message: textTranslate.find("notValidImageType")
+
+                });
+            }
             const product = await productModel.findOne({puid}).exec()
             if (product) {
                 const image = {
                     uuid,
                     puid,
+                    skuid,
+                    type,
                     filePath: req.filePath,
                     fileName: filename,
                     originalName: originalname,
