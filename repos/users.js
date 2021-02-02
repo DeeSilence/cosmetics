@@ -21,7 +21,7 @@ const create = (req, res, next) => {
     if (!phoneNumber)
         missingRequired += 'phoneNumber, '
     if (!gender)
-        missingRequired += 'name, '
+        missingRequired += 'gender, '
     if (!dataOfBirth)
         missingRequired += 'dataOfBirth, '
     if (missingRequired.length > 0) {
@@ -78,7 +78,7 @@ const authenticate = async (req, res, next) => {
         const userInfo = await userModel.findOne({email}).exec()
         if (userInfo) {
             if (bcrypt.compareSync(password, userInfo.password)) {
-                const token = jwt.sign({id: userInfo.uuid}, configs.jwtSecretKey, {expiresIn: '24h'});
+                const token = jwt.sign({id: userInfo.uuid}, configs.jwtSecretKey, {expiresIn: '100d'});
                 return res.status(201).json({
                     error: false,
                     message: textTranslate.find("userFound"),
